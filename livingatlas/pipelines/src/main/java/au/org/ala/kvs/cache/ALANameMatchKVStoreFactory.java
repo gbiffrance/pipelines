@@ -1,5 +1,6 @@
 package au.org.ala.kvs.cache;
 
+import au.org.ala.kvs.ALANameMatchConfig;
 import au.org.ala.kvs.ALAPipelinesConfig;
 import au.org.ala.names.ws.api.NameMatchService;
 import au.org.ala.names.ws.api.NameSearch;
@@ -23,6 +24,7 @@ public class ALANameMatchKVStoreFactory {
 
   private final KeyValueStore<NameSearch, NameUsageMatch> kvStore;
   private static volatile ALANameMatchKVStoreFactory instance;
+  private static volatile Boolean matchOnTaxonId;
   private static final Object MUTEX = new Object();
 
   @SneakyThrows
@@ -49,6 +51,11 @@ public class ALANameMatchKVStoreFactory {
    */
   public static KeyValueStore<NameSearch, NameUsageMatch> create(ALAPipelinesConfig config)
       throws IOException {
+    ALANameMatchConfig alaNameMatchConfig =
+        config.getAlaNameMatchConfig() != null
+            ? config.getAlaNameMatchConfig()
+            : new ALANameMatchConfig();
+    matchOnTaxonId = alaNameMatchConfig.getMatchOnTaxonID();
     WsConfig ws = config.getAlaNameMatch();
     ClientConfiguration clientConfiguration = WsUtils.createConfiguration(ws);
     ALANameUsageMatchServiceClient wsClient =
@@ -78,7 +85,11 @@ public class ALANameMatchKVStoreFactory {
             try {
               for (int i = 0; i < config.getAlaNameMatch().getRetryConfig().getMaxAttempts(); i++) {
                 try {
-                  return nameMatchService.match(key);
+                  if (matchOnTaxonId) {
+                    return nameMatchService.get(key.getTaxonID(), true);
+                  } else {
+                    return nameMatchService.match(key);
+                  }
                 } catch (ClientException exception) {
                   log.error(
                       "ClientException contacting the species match service with key: "
