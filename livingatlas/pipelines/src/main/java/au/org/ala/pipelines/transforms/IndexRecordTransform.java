@@ -1072,8 +1072,9 @@ public class IndexRecordTransform implements Serializable, IndexFields {
 
     // keep track of added dynamic properties
     for (Map.Entry<String, String> s : indexRecord.getStrings().entrySet()) {
-      if (schemaFields.containsKey(s.getKey())
-          || startsWithPrefix(dynamicFieldPrefixes, s.getKey())) {
+      if ((schemaFields.containsKey(s.getKey())
+              || startsWithPrefix(dynamicFieldPrefixes, s.getKey()))
+          && (!schemaFields.containsKey(DYNAMIC_PROPERTIES_PREFIX + s.getKey()))) {
         addStringSafely(doc, s.getKey(), s.getValue());
       } else {
         // clean up field name before adding
@@ -1081,50 +1082,8 @@ public class IndexRecordTransform implements Serializable, IndexFields {
         if (StringUtils.isNotEmpty(key)
             && doc.getFieldValue(DYNAMIC_PROPERTIES_PREFIX + key) == null) {
           SolrFieldSchema fieldSchema = schemaFields.get(DYNAMIC_PROPERTIES_PREFIX + key);
-          if ((fieldSchema != null) && (fieldSchema.type != null)) {
-            if (fieldSchema.multiple) {
-              doc.addField(
-                  DYNAMIC_PROPERTIES_PREFIX + key, s.getValue().split(MULTIPLE_VALUES_DELIM));
-            } else {
-              switch (fieldSchema.type) {
-                case BOOLEAN:
-                  doc.addField(DYNAMIC_PROPERTIES_PREFIX + key, Boolean.valueOf(s.getValue()));
-                  break;
-                case DATE:
-                  try {
-                    Date date = null;
-                    if ((s.getValue() != null)
-                        && (s.getValue().length() == YYYY_MM_DDTHH_mm_ss_Z_LENGTH)) {
-                      SimpleDateFormat sdf = new SimpleDateFormat(YYYY_MM_DDTHH_mm_ss_Z_FORMAT);
-                      date = sdf.parse(s.getValue());
-                    }
-                    if ((s.getValue() != null)
-                        && (s.getValue().length() == YYYY_DD_MM_FORMAT_LENGTH)) {
-                      SimpleDateFormat sdf = new SimpleDateFormat(YYYY_DD_MM_FORMAT);
-                      date = sdf.parse(s.getValue());
-                    }
-                    doc.addField(DYNAMIC_PROPERTIES_PREFIX + key, date);
-                  } catch (ParseException e) {
-                    log.error("Cannot parse date " + s.getValue());
-                  }
-                  break;
-                case DOUBLE:
-                  doc.addField(DYNAMIC_PROPERTIES_PREFIX + key, Double.valueOf(s.getValue()));
-                  break;
-                case FLOAT:
-                  doc.addField(DYNAMIC_PROPERTIES_PREFIX + key, Float.valueOf(s.getValue()));
-                  break;
-                case INT:
-                  doc.addField(DYNAMIC_PROPERTIES_PREFIX + key, Integer.valueOf(s.getValue()));
-                  break;
-                case LONG:
-                  doc.addField(DYNAMIC_PROPERTIES_PREFIX + key, Long.valueOf(s.getValue()));
-                  break;
-                case STRING:
-                  addStringSafely(doc, DYNAMIC_PROPERTIES_PREFIX + key, s.getValue());
-                  break;
-              }
-            }
+          if (fieldSchema != null) {
+            convertUsingSchema(doc, DYNAMIC_PROPERTIES_PREFIX + key, s.getValue(), fieldSchema);
           } else {
             addStringSafely(doc, DYNAMIC_PROPERTIES_PREFIX + key, s.getValue());
           }
@@ -1179,6 +1138,50 @@ public class IndexRecordTransform implements Serializable, IndexFields {
     }
 
     return doc;
+  }
+
+  private static void convertUsingSchema(
+      SolrInputDocument doc, String key, String value, SolrFieldSchema fieldSchema) {
+    if (fieldSchema.multiple) {
+      doc.addField(key, value.split(MULTIPLE_VALUES_DELIM));
+    } else if (fieldSchema.type != null) {
+      switch (fieldSchema.type) {
+        case BOOLEAN:
+          doc.addField(key, Boolean.valueOf(value));
+          break;
+        case DATE:
+          try {
+            Date date = null;
+            if ((value != null) && (value.length() == YYYY_MM_DDTHH_mm_ss_Z_LENGTH)) {
+              SimpleDateFormat sdf = new SimpleDateFormat(YYYY_MM_DDTHH_mm_ss_Z_FORMAT);
+              date = sdf.parse(value);
+            }
+            if ((value != null) && (value.length() == YYYY_DD_MM_FORMAT_LENGTH)) {
+              SimpleDateFormat sdf = new SimpleDateFormat(YYYY_DD_MM_FORMAT);
+              date = sdf.parse(value);
+            }
+            doc.addField(key, date);
+          } catch (ParseException e) {
+            log.error("Cannot parse date " + value);
+          }
+          break;
+        case DOUBLE:
+          doc.addField(key, Double.valueOf(value));
+          break;
+        case FLOAT:
+          doc.addField(key, Float.valueOf(value));
+          break;
+        case INT:
+          doc.addField(key, Integer.valueOf(value));
+          break;
+        case LONG:
+          doc.addField(key, Long.valueOf(value));
+          break;
+        case STRING:
+          addStringSafely(doc, key, value);
+          break;
+      }
+    }
   }
 
   private static boolean isNotBlank(String s) {
