@@ -112,7 +112,7 @@ public class ALABasicTransform extends Transform<ExtendedRecord, BasicRecord> {
         .via(VocabularyInterpreter.interpretEstablishmentMeans(vocabularyService))
         .via(VocabularyInterpreter.interpretLifeStage(vocabularyService))
         .via(ALABasicInterpreter::interpretLicense)
-        .via(ALABasicInterpreter.interpretRecordedBy(recordedByKvStore))
+        .via(BasicInterpreter::interpretRecordedBy)
         .via((e, r) -> CoreInterpreter.interpretDatasetID(e, r::setDatasetID))
         .via((e, r) -> CoreInterpreter.interpretDatasetName(e, r::setDatasetName))
         .via(BasicInterpreter::interpretOtherCatalogNumbers)
