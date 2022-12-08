@@ -657,8 +657,10 @@ public class IndexRecordTransform implements Serializable, IndexFields {
         LocalDateTime ldt = ((LocalDateTime) r.getPayload());
         return ldt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
       } else if (r.getPayload() instanceof LocalDate) {
+        // OpenObs date are DD/MM/YYYY
+        // We will force them to be at 00:00:00 UTC
         LocalDate ldt = ((LocalDate) r.getPayload());
-        ZoneId zoneId = ZoneId.systemDefault();
+        ZoneId zoneId = ZoneOffset.UTC.normalized();
         return ldt.atStartOfDay(zoneId).toEpochSecond() * 1000;
       } else if (r.getPayload() instanceof OffsetDateTime) {
         OffsetDateTime ldt = ((OffsetDateTime) r.getPayload());
